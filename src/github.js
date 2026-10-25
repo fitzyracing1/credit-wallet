@@ -11,6 +11,14 @@ function appJwt(appId, pem, now = Math.floor(Date.now() / 1000)) {
   return `${h}.${p}.${s}`;
 }
 
+// Private key sources, first match wins: PRIVATE_KEY_BASE64, PRIVATE_KEY (PEM, \\n allowed), PRIVATE_KEY_PATH.
+function loadPrivateKey({ env = process.env, keyPath = env.PRIVATE_KEY_PATH } = {}) {
+  if (env.PRIVATE_KEY_BASE64) return Buffer.from(env.PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+  if (env.PRIVATE_KEY) return env.PRIVATE_KEY.replace(/\\n/g, '\n');
+  if (keyPath) return fs.readFileSync(keyPath, 'utf8');
+  throw new Error('no GitHub App private key configured');
+}
+
 function client({ appId = process.env.APP_ID, keyPath = process.env.PRIVATE_KEY_PATH, fetchImpl = globalThis.fetch, api = 'https://api.github.com' } = {}) {
   async function req(token, method, url, body) {
     const r = await fetchImpl(api + url, { method, headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'user-agent': 'credit-wallet' }, body: body ? JSON.stringify(body) : undefined });
@@ -19,11 +27,11 @@ function client({ appId = process.env.APP_ID, keyPath = process.env.PRIVATE_KEY_
     return r.status === 204 ? {} : r.json();
   }
   async function installationToken(installationId) {
-    const jwt = appJwt(appId, fs.readFileSync(keyPath, 'utf8'));
+    const jwt = appJwt(appId, loadPrivateKey({ keyPath }));
     const r = await req(jwt, 'POST', `/app/installations/${installationId}/access_tokens`);
     return r.token;
   }
   return { req, installationToken };
 }
 
-module.exports = { appJwt, client };
+module.exports = { appJwt, client, loadPrivateKey };
