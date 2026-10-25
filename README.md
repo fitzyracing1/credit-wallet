@@ -41,6 +41,7 @@ WEBHOOK_SECRET=... APP_ID=... PRIVATE_KEY_PATH=/path/key.pem npm start   # POST 
 npm test
 ```
 
+The private key can be given as `PRIVATE_KEY_BASE64`, `PRIVATE_KEY` (PEM), or `PRIVATE_KEY_PATH`.
 Secrets come from the environment and are never logged.
 
 ## Registration, Origin app packaging, and marketplace submission

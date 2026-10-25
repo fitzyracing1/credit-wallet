@@ -133,3 +133,11 @@ test('GET / serves a self-contained homepage', async () => {
   assert.ok(!/<script|<link|src=/i.test(html), 'no external deps');
   srv.close();
 });
+
+test('private key loads from PRIVATE_KEY_BASE64 or PRIVATE_KEY', () => {
+  const { loadPrivateKey } = require('../src/github');
+  const pem = '-----BEGIN KEY-----\nabc\n-----END KEY-----\n';
+  assert.strictEqual(loadPrivateKey({ env: { PRIVATE_KEY_BASE64: Buffer.from(pem).toString('base64') } }), pem);
+  assert.strictEqual(loadPrivateKey({ env: { PRIVATE_KEY: pem.replace(/\n/g, '\\n') } }), pem);
+  assert.throws(() => loadPrivateKey({ env: {} }), /no GitHub App private key/);
+});
