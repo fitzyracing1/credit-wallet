@@ -1,0 +1,15 @@
+{
+  "name": "credit-wallet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Opt-in GitHub App for CREDIT-1 wallets: approve-first, unsigned proposals only.",
+  "license": "MIT",
+  "author": "Joshua Almeida",
+  "type": "commonjs",
+  "bin": { "credit-wallet": "bin/credit-wallet.js" },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  }
+}

@@ -1,0 +1,17 @@
+# GitHub App manifest for credit-wallet. Used for registration via the manifest flow.
+# NOT registered yet; Joshua registers it himself. Replace the placeholder URLs first.
+name: credit-wallet
+url: https://github.com/fitzyracing1/credit-wallet
+description: Opt-in CREDIT-1 wallets. Approve-first, unsigned proposals for merged PRs. Never comments.
+public: true
+hook_attributes:
+  url: https://example.invalid/webhook   # set to your deployed /webhook URL
+  active: true
+redirect_url: https://github.com/fitzyracing1/credit-wallet
+default_events:
+  - installation
+  - pull_request
+default_permissions:
+  metadata: read
+  contents: write        # only to commit CREDIT.json on a branch in the installer's repo
+  pull_requests: write   # only to open that one wallet PR; the app never comments
