@@ -121,3 +121,15 @@ test('server rejects unsigned webhooks and queues signed ones', async () => {
   assert.deepStrictEqual(await r.json(), { queued: 'alice/proj#7' });
   srv.close();
 });
+
+test('GET / serves a self-contained homepage', async () => {
+  const srv = createServer({ secret: 's', gh: fakeGh(), dataDir: tmp() });
+  await new Promise(r => srv.listen(0, r));
+  const r = await fetch(`http://127.0.0.1:${srv.address().port}/`);
+  assert.strictEqual(r.status, 200);
+  assert.match(r.headers.get('content-type'), /text\/html/);
+  const html = await r.text();
+  for (const s of ['credit-wallet', 'opt-in', 'unsigned proposal', 'did not install', 'github.com/fitzyracing1/credit-wallet', '/healthz']) assert.ok(html.includes(s), s);
+  assert.ok(!/<script|<link|src=/i.test(html), 'no external deps');
+  srv.close();
+});

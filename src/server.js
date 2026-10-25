@@ -3,11 +3,13 @@ const http = require('node:http');
 const { verifySignature } = require('./verify');
 const { handle } = require('./handler');
 const { client } = require('./github');
+const { HTML } = require('./home');
 
 function createServer({ secret = process.env.WEBHOOK_SECRET, gh = client(), dataDir } = {}) {
   if (!secret) throw new Error('WEBHOOK_SECRET is required');
   return http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/healthz') { res.end('lit\n'); return; }
+    if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) { res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(HTML); return; }
     if (req.method !== 'POST' || req.url !== '/webhook') { res.statusCode = 404; res.end(); return; }
     const chunks = [];
     req.on('data', c => chunks.push(c));
