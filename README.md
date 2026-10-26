@@ -34,6 +34,22 @@ fitzyracing1/credit; this app never holds or reads signing keys.
 
 **The app never comments, opens issues, opens PRs in anyone else's repo, or messages non-installers.**
 
+## Read-only grants API (for bots)
+
+`GET /grants[?owner=<login>]` returns the caller's **pending, unsigned** proposals as JSON. No write endpoints exist.
+
+```
+curl -H "Authorization: Bearer $GITHUB_USER_TOKEN" \
+  https://credit-wallet-production.up.railway.app/grants
+# {"owner":"alice","installation":123,"pending":[{"id":"alice/proj#7","to":{...},"weight":1,...}]}
+```
+
+The server checks the token with GitHub (`GET /user`). `owner` defaults to the token's login; an org
+`owner` requires an active admin membership. The app must be installed on that account. Otherwise:
+401 (no/invalid token), 403 (not yours or not installed). Tokens are used only for those checks and never stored or logged.
+A bot (e.g. a Grok Bot "Money" template) should use the installer's own token, read-only scope is enough
+(`read:org` only if checking an org).
+
 ## Run
 
 ```
