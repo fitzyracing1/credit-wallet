@@ -141,3 +141,50 @@ test('private key loads from PRIVATE_KEY_BASE64 or PRIVATE_KEY', () => {
   assert.strictEqual(loadPrivateKey({ env: { PRIVATE_KEY: pem.replace(/\n/g, '\\n') } }), pem);
   assert.throws(() => loadPrivateKey({ env: {} }), /no GitHub App private key/);
 });
+
+function authGh({ users = { tA: 'alice', tM: 'mallory' }, installed = ['alice', 'acme'], admins = {} } = {}) {
+  return { installationToken: async () => 'x',
+    req: async (t, m, u) => {
+      if (u === '/user') return users[t] ? { login: users[t] } : null;
+      const om = /^\/user\/memberships\/orgs\/(.+)$/.exec(u);
+      if (om) return (admins[t] || []).includes(om[1]) ? { state: 'active', role: 'admin' } : null;
+      return null;
+    },
+    appReq: async (m, u) => { const o = u.split('/')[2]; return installed.includes(o) ? { id: 99 } : null; } };
+}
+
+test('/grants: denied without or with bad auth, and for other owners', async () => {
+  const { grantsFor } = require('../src/grants');
+  const d = tmp(); queue.propose({ owner: 'alice', repo: 'alice/p', pr: 1, author: 'bob' }, d);
+  const gh = authGh();
+  assert.strictEqual((await grantsFor(gh, undefined, null, d)).status, 401);
+  assert.strictEqual((await grantsFor(gh, 'Bearer nope', null, d)).status, 401);
+  const r = await grantsFor(gh, 'Bearer tM', 'alice', d);
+  assert.strictEqual(r.status, 403); assert.ok(!JSON.stringify(r.body).includes('bob'));
+  assert.strictEqual((await grantsFor(gh, 'Bearer tM', null, d)).status, 403); // mallory has no install
+});
+
+test('/grants: returns only the caller own pending grants; org admin allowed', async () => {
+  const { grantsFor } = require('../src/grants');
+  const d = tmp();
+  queue.propose({ owner: 'alice', repo: 'alice/p', pr: 1, author: 'bob' }, d);
+  queue.propose({ owner: 'acme', repo: 'acme/q', pr: 2, author: 'carol' }, d);
+  queue.propose({ owner: 'alice', repo: 'alice/p', pr: 3, author: 'dan' }, d);
+  queue.setStatus('alice/p#3', 'approved', d);
+  const r = await grantsFor(authGh(), 'Bearer tA', null, d);
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(r.body.pending.map(p => p.id), ['alice/p#1']);
+  const o = await grantsFor(authGh({ admins: { tA: ['acme'] } }), 'Bearer tA', 'acme', d);
+  assert.deepStrictEqual(o.body.pending.map(p => p.id), ['acme/q#2']);
+  assert.strictEqual((await grantsFor(authGh(), 'Bearer tA', 'acme', d)).status, 403);
+});
+
+test('server /grants is read-only and 401 without auth', async () => {
+  const srv = createServer({ secret: 's', gh: authGh(), dataDir: tmp() });
+  await new Promise(r => srv.listen(0, r));
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  assert.strictEqual((await fetch(base + '/grants')).status, 401);
+  assert.strictEqual((await fetch(base + '/grants', { method: 'POST' })).status, 405);
+  assert.strictEqual((await fetch(base + '/grants?owner=alice', { headers: { authorization: 'Bearer tA' } })).status, 200);
+  srv.close();
+});

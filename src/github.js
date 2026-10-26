@@ -31,7 +31,8 @@ function client({ appId = process.env.APP_ID, keyPath = process.env.PRIVATE_KEY_
     const r = await req(jwt, 'POST', `/app/installations/${installationId}/access_tokens`);
     return r.token;
   }
-  return { req, installationToken };
+  async function appReq(method, url) { return req(appJwt(appId, loadPrivateKey({ keyPath })), method, url); }
+  return { req, appReq, installationToken };
 }
 
 module.exports = { appJwt, client, loadPrivateKey };

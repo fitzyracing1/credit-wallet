@@ -4,12 +4,22 @@ const { verifySignature } = require('./verify');
 const { handle } = require('./handler');
 const { client } = require('./github');
 const { HTML } = require('./home');
+const { grantsFor } = require('./grants');
 
 function createServer({ secret = process.env.WEBHOOK_SECRET, gh = client(), dataDir } = {}) {
   if (!secret) throw new Error('WEBHOOK_SECRET is required');
   return http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/healthz') { res.end('lit\n'); return; }
     if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) { res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(HTML); return; }
+    if (req.url === '/grants' || req.url.startsWith('/grants?')) {
+      res.setHeader('content-type', 'application/json'); res.setHeader('cache-control', 'no-store');
+      if (req.method !== 'GET') { res.statusCode = 405; res.end('{"error":"read-only"}'); return; }
+      const owner = new URL(req.url, 'http://x').searchParams.get('owner');
+      grantsFor(gh, req.headers.authorization, owner, dataDir)
+        .then(r => { res.statusCode = r.status; res.end(JSON.stringify(r.body)); })
+        .catch(() => { res.statusCode = 502; res.end('{"error":"upstream check failed"}'); });
+      return;
+    }
     if (req.method !== 'POST' || req.url !== '/webhook') { res.statusCode = 404; res.end(); return; }
     const chunks = [];
     req.on('data', c => chunks.push(c));
